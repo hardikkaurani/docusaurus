@@ -10,17 +10,21 @@ import {logger} from '@docusaurus/logger';
 import beforeCli, {ignoreUpdate} from '../beforeCli.mjs';
 import type {UpdateInfo} from 'update-notifier';
 
-let mockNotifierUpdate: UpdateInfo | undefined;
-const mockNotifierConfig = {
-  get: vi.fn(),
-  set: vi.fn(),
-};
+const {mockNotifierConfig, mockState} = vi.hoisted(() => ({
+  mockNotifierConfig: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
+  mockState: {
+    update: undefined as UpdateInfo | undefined,
+  },
+}));
 
 vi.mock('update-notifier', () => ({
   default: vi.fn(() => ({
     config: mockNotifierConfig,
     get update() {
-      return mockNotifierUpdate;
+      return mockState.update;
     },
     check: vi.fn(),
   })),
@@ -106,7 +110,7 @@ describe('beforeCli control flow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNotifierUpdate = undefined;
+    mockState.update = undefined;
     Object.defineProperty(process, 'version', {
       value: 'v26.0.0',
       configurable: true,
@@ -128,7 +132,7 @@ describe('beforeCli control flow', () => {
         code?: string | number | null | undefined,
       ) => never);
 
-    mockNotifierUpdate = {
+    mockState.update = {
       current: '3.7.0-canary-6264',
       latest: '3.7.0',
       name: '@docusaurus/core',
@@ -139,7 +143,7 @@ describe('beforeCli control flow', () => {
 
     expect(mockNotifierConfig.set).toHaveBeenCalledWith(
       'update',
-      mockNotifierUpdate,
+      mockState.update,
     );
     expect(consoleLogSpy).not.toHaveBeenCalled();
     expect(processExitSpy).not.toHaveBeenCalled();
@@ -153,7 +157,7 @@ describe('beforeCli control flow', () => {
         code?: string | number | null | undefined,
       ) => never);
 
-    mockNotifierUpdate = {
+    mockState.update = {
       current: '3.6.0',
       latest: '3.7.0',
       name: '@docusaurus/core',
@@ -164,7 +168,7 @@ describe('beforeCli control flow', () => {
 
     expect(mockNotifierConfig.set).toHaveBeenCalledWith(
       'update',
-      mockNotifierUpdate,
+      mockState.update,
     );
     expect(consoleLogSpy).toHaveBeenCalled();
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain('Update available');
@@ -185,7 +189,7 @@ describe('beforeCli control flow', () => {
         code?: string | number | null | undefined,
       ) => never);
 
-    mockNotifierUpdate = {
+    mockState.update = {
       current: '3.7.0-canary-6264',
       latest: '3.7.0',
       name: '@docusaurus/core',
@@ -219,7 +223,7 @@ describe('beforeCli control flow', () => {
         code?: string | number | null | undefined,
       ) => never);
 
-    mockNotifierUpdate = {
+    mockState.update = {
       current: '4.0.0-alpha.0',
       latest: '4.0.0',
       name: '@docusaurus/core',
@@ -253,7 +257,7 @@ describe('beforeCli control flow', () => {
         code?: string | number | null | undefined,
       ) => never);
 
-    mockNotifierUpdate = undefined;
+    mockState.update = undefined;
 
     Object.defineProperty(process, 'version', {
       value: 'v18.0.0',
