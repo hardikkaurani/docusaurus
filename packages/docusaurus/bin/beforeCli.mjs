@@ -103,74 +103,72 @@ export default async function beforeCli() {
     // See https://github.com/yeoman/update-notifier/issues/209
     notifier.config.set('update', notifier.update);
 
-    if (ignoreUpdate(notifier.update)) {
-      return;
-    }
+    if (!ignoreUpdate(notifier.update)) {
+      const siteDocusaurusPackagesForUpdate = Object.keys({
+        ...sitePkg.dependencies,
+        ...sitePkg.devDependencies,
+      })
+        .filter((p) => p.startsWith('@docusaurus'))
+        .map((p) => p.concat('@latest'))
+        .join(' ');
 
-    const siteDocusaurusPackagesForUpdate = Object.keys({
-      ...sitePkg.dependencies,
-      ...sitePkg.devDependencies,
-    })
-      .filter((p) => p.startsWith('@docusaurus'))
-      .map((p) => p.concat('@latest'))
-      .join(' ');
+      const getYarnVersion = async () => {
+        if (!(await fs.pathExists(path.resolve('yarn.lock')))) {
+          return undefined;
+        }
 
-    const getYarnVersion = async () => {
-      if (!(await fs.pathExists(path.resolve('yarn.lock')))) {
+        const yarnVersionResult = await execa`yarn --version`;
+        const majorVersion = parseInt(
+          yarnVersionResult.stdout?.trim().split('.')[0] ?? '',
+          10,
+        );
+        if (!Number.isNaN(majorVersion)) {
+          return majorVersion;
+        }
+
         return undefined;
-      }
+      };
 
-      const yarnVersionResult = await execa`yarn --version`;
-      const majorVersion = parseInt(
-        yarnVersionResult.stdout?.trim().split('.')[0] ?? '',
-        10,
-      );
-      if (!Number.isNaN(majorVersion)) {
-        return majorVersion;
-      }
+      const getUpgradeCommand = async () => {
+        const yarnVersion = await getYarnVersion();
+        if (!yarnVersion) {
+          return `npm i ${siteDocusaurusPackagesForUpdate}`;
+        }
+        return yarnVersion >= 2
+          ? `yarn up ${siteDocusaurusPackagesForUpdate}`
+          : `yarn upgrade ${siteDocusaurusPackagesForUpdate}`;
+      };
 
-      return undefined;
-    };
+      /** @type {import('boxen').Options} */
+      const boxenOptions = {
+        padding: 1,
+        margin: 1,
+        align: 'center',
+        borderColor: 'yellow',
+        borderStyle: {
+          topLeft: ' ',
+          topRight: ' ',
+          bottomLeft: ' ',
+          bottomRight: ' ',
+          top: '-',
+          bottom: '-',
+          left: ' ',
+          right: ' ',
+        },
+      };
 
-    const getUpgradeCommand = async () => {
-      const yarnVersion = await getYarnVersion();
-      if (!yarnVersion) {
-        return `npm i ${siteDocusaurusPackagesForUpdate}`;
-      }
-      return yarnVersion >= 2
-        ? `yarn up ${siteDocusaurusPackagesForUpdate}`
-        : `yarn upgrade ${siteDocusaurusPackagesForUpdate}`;
-    };
-
-    /** @type {import('boxen').Options} */
-    const boxenOptions = {
-      padding: 1,
-      margin: 1,
-      align: 'center',
-      borderColor: 'yellow',
-      borderStyle: {
-        topLeft: ' ',
-        topRight: ' ',
-        bottomLeft: ' ',
-        bottomRight: ' ',
-        top: '-',
-        bottom: '-',
-        left: ' ',
-        right: ' ',
-      },
-    };
-
-    const docusaurusUpdateMessage = boxen(
-      `Update available ${logger.dim(
-        `${notifier.update.current}`,
-      )} → ${logger.green(`${notifier.update.latest}`)}
+      const docusaurusUpdateMessage = boxen(
+        `Update available ${logger.dim(
+          `${notifier.update.current}`,
+        )} → ${logger.green(`${notifier.update.latest}`)}
 
   To upgrade Docusaurus packages with the latest version, run the following command:
   ${logger.code(await getUpgradeCommand())}`,
-      boxenOptions,
-    );
+        boxenOptions,
+      );
 
-    console.log(docusaurusUpdateMessage);
+      console.log(docusaurusUpdateMessage);
+    }
   }
 
   // Notify user if node version needs to be updated
